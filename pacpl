@@ -20,6 +20,7 @@
 use strict;
 use warnings;
 #use Switch;
+use feature qw(switch);
 use Getopt::Long;
 use File::Basename;
 use File::Find;
@@ -1944,12 +1945,12 @@ sub prompt_user {
 
     given ($opt) {
 
-        when ('BITRATE')   {
-                          my $sq = shell_quote_best_effort($lang{kde_bitrate});
-                          $bitrate  = `$kdialog --default $bitrate  --combobox $sq 56 112 128 160 192 256 320`;
-                          chomp($bitrate);
-                          exit(1) if not $bitrate;
-                         }
+        when ('BITRATE') {
+            my $sq = shell_quote_best_effort($lang{kde_bitrate});
+            $bitrate  = `$kdialog --default $bitrate  --combobox $sq 56 112 128 160 192 256 320`;
+            chomp($bitrate);
+            exit(1) if not $bitrate;
+        }
 
         when ('FREQ')      {
                           my $sq = shell_quote_best_effort($lang{kde_freq});
