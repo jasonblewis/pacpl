@@ -3096,8 +3096,7 @@ echo ""
 echo "checking for required perl modules..."
 echo ""
 
-ac_perl_modules="Switch
-			strict
+ac_perl_modules="	strict
 			warnings
 			Getopt::Long
 			File::Basename

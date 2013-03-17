@@ -19,11 +19,12 @@
 
 use strict;
 use warnings;
-use Switch;
+#use Switch;
 use Getopt::Long;
 use File::Basename;
 use File::Find;
 use File::Spec::Functions qw(rel2abs);
+use Smart::Match;
 
 use String::ShellQuote qw();
 # custom wrappers around String::ShellQoute's functions, which deal
@@ -1941,107 +1942,107 @@ sub prompt_user {
 
     my $opt = shift;
 
-    switch ($opt) {
+    given ($opt) {
 
-        case 'BITRATE'   {
+        when ('BITRATE')   {
                           my $sq = shell_quote_best_effort($lang{kde_bitrate});
                           $bitrate  = `$kdialog --default $bitrate  --combobox $sq 56 112 128 160 192 256 320`;
                           chomp($bitrate);
                           exit(1) if not $bitrate;
                          }
 
-        case 'FREQ'      {
+        when ('FREQ')      {
                           my $sq = shell_quote_best_effort($lang{kde_freq});
                           $freq     = `$kdialog --default $freq     --combobox $sq 32000 44100 48000`;
                           chomp($freq);
                           exit(1) if not $freq;
                          }
 
-        case 'CHANNELS'  { 
+        when ('CHANNELS')  { 
                           my $sq = shell_quote_best_effort($lang{kde_chans});
                           $channels = `$kdialog --default $channels --combobox $sq 1 2`;
                           chomp($channels);
                           exit(1) if not $channels;
                          }
 
-        case 'FCOMP'     {
+        when ('FCOMP')     {
                           my $sq = shell_quote_best_effort($lang{kde_fcomp});
                           $fcomp    = `$kdialog --default $fcomp    --combobox $sq 0 1 2 3 4 5 6 7 8`;
                           chomp($fcomp);
                           exit(1) if not $fcomp;
                          }
 
-        case 'PCOMP'     {
+        when ('PCOMP')     {
                           my $sq = shell_quote_best_effort($lang{kde_pcomp});
                           $pcomp    = `$kdialog --default $pcomp    --combobox $sq 1 2 3 4 5`;
                           chomp($pcomp);
                           exit(1) if not $pcomp;
                          }
 
-        case 'ACOMP'     {
+        when ('ACOMP')     {
                           my $sq = shell_quote_best_effort($lang{kde_acomp});
                           $acomp    = `$kdialog --default $acomp    --combobox $sq 1000 2000 3000 4000 5000`;
                           chomp($acomp);
                           exit(1) if not $acomp;
                          }
 
-        case 'OGGQUAL'   {
+        when ('OGGQUAL')   {
                           my $sq = shell_quote_best_effort($lang{kde_oggqual});
                           $oggqual  = `$kdialog --default $oggqual   --combobox $sq 0 1 2 3 4 5 6 7 8 9 10`;
                           chomp($oggqual);
                           exit(1) if not $oggqual;
                          }
 
-        case 'SPXQUAL'   {
+        when ('SPXQUAL')   {
                           my $sq = shell_quote_best_effort($lang{kde_spxqual});
                           $spxqual  = `$kdialog --default $spxqual   --combobox $sq 0 1 2 3 4 5 6 7 8 9 10`;
                           chomp($spxqual);
                           exit(1) if not $spxqual;
                          }
 
-        case 'AACQUAL'   {
+        when ('AACQUAL')   {
                           my $sq = shell_quote_best_effort($lang{kde_aacqual});
                           $aacqual  = `$kdialog --default $aacqual   --combobox $sq 50 75 100 125 150`;
                           chomp($aacqual);
                           exit(1) if not $aacqual;
                          }
 
-        case 'MPCQUAL'   {
+        when ('MPCQUAL')   {
                           my $sq = shell_quote_best_effort($lang{kde_mpcqual});
                           $mpcqual  = `$kdialog --default $mpcqual   --combobox $sq thumb radio standard xtreme insane braindead`;
                           chomp($mpcqual);
                           exit(1) if not $mpcqual;
                          }
 
-        case 'OFMODE'    {
+        when ('OFMODE')    {
                           my $sq = shell_quote_best_effort($lang{kde_ofmode});
                           $ofmode   = `$kdialog --default $ofmode    --combobox $sq fast normal high extra best highnew extranew bestnew`; 
                           chomp($ofmode);
                           exit(1) if not $ofmode;
                          }
 
-        case 'OFOPT'     {
+        when ('OFOPT')     {
                           my $sq = shell_quote_best_effort($lang{kde_ofopt});
                           $ofopt    = `$kdialog --default $ofopt     --combobox $sq none fast normal high best`; 
                           chomp($ofopt);
                           exit(1) if not $ofopt;
                          }
 
-        case 'BRATIO'    {
+        when ('BRATIO')    {
                           my $sq = shell_quote_best_effort($lang{kde_bratio});
                           $bratio   = `$kdialog --default $bratio    --combobox $sq 1 2 3 4 5`;
                           chomp($bratio);
                           exit(1) if not $bratio;
                          }
 
-        case 'BQUANL'    {
+        when ('BQUANL')    {
                           my $sq = shell_quote_best_effort($lang{kde_bquanl});
                           $bquanl   = `$kdialog --default $bquanl    --combobox $sq 1.00 1.25 1.50 1.75 2.00`;
                           chomp($bquanl);
                           exit(1) if not $bquanl;
                          }
 
-        case 'BPSIZE'    {
+        when ('BPSIZE')    {
                           my $sq = shell_quote_best_effort($lang{kde_bpsize});
                           $bpsize   = `$kdialog --default $bpsize    --combobox $sq 10 128`;
                           chomp($bpsize);
@@ -2085,9 +2086,9 @@ sub format_tags {
 
     my $type = shift;
 
-    switch ($type) {
+    given ($type) {
         
-        case /mp4|m4a|m4b/ { 
+        when (any qw(mp4 m4a m4b)) {
 
                             if ($run{$to}{ENCODER}{$encoder}{NAME} eq "avconv") {
                                 
@@ -2117,7 +2118,7 @@ sub format_tags {
                             }
                            } 
                 
-        case /mpc|mpp/ {
+        when (any qw(mpc mpp)) {
                         return sprintf("--tag %s --tag %s --tag %s --tag %s --tag %s --tag %s --tag %s",
                                        shell_quote_best_effort("Title=$tag_name{title}"),
                                        shell_quote_best_effort("Track=$tag_name{track}"),
@@ -2127,7 +2128,7 @@ sub format_tags {
                                        shell_quote_best_effort("Year=$tag_name{year}"),
                                        shell_quote_best_effort("Genre=$tag_name{genre}"));
                        }
-        case 'wv'      {
+        when ('wv')      {
                         return sprintf("-w %s -w %s -w %s -w %s -w %s -w %s -w %s",
                                        shell_quote_best_effort("Title=$tag_name{title}"),
                                        shell_quote_best_effort("Track=$tag_name{track}"),
@@ -2137,13 +2138,13 @@ sub format_tags {
                                        shell_quote_best_effort("Year=$tag_name{year}"),
                                        shell_quote_best_effort("Genre=$tag_name{genre}"));
                        }
-        case 'bonk'    {
+        when ('bonk')    {
                         return sprintf("-t %s -a %s -c %s",
                                        shell_quote_best_effort($tag_name{title}),
                                        shell_quote_best_effort($tag_name{artist}),
                                        shell_quote_best_effort($tag_name{comment}));
                        }
-        case 'spx'     {
+        when ('spx')   {
                         return sprintf("--author %s --title %s --comment %s --comment %s --comment %s --comment %s --comment %s",
                                        shell_quote_best_effort($tag_name{artist}),
                                        shell_quote_best_effort($tag_name{title}),
@@ -2167,7 +2168,7 @@ sub read_tags {
 
     switch ($in_format) {
 
-           case 'mp3'  {
+           when ('mp3')  {
                         my $mp3tag = $tag_module->new($in_file);
                         my @tags   = $mp3tag->autoinfo();
 
@@ -2182,7 +2183,7 @@ sub read_tags {
                         return 0;
                        }
 
-           case 'ogg'  {
+           when ('ogg')  {
                             my $ogg_tag = $tag_module->new($in_file);
 
                             my ($tit, $tra, $art, $alb, $com, $yea, $gen);
@@ -2209,7 +2210,7 @@ sub read_tags {
                             return 0;
                        }
                        
-        case 'spx'     {
+        when ('spx')     {
                             my $pid  = open(SPX, sprintf("speexdec %s tmp1-$$.wav 2>&1 |",
                                                          shell_quote_best_effort($in_file))) or perror("opening_file","$in_file");
                             my @data = <SPX>;
@@ -2235,7 +2236,7 @@ sub read_tags {
                              return 0;
                        }
 
-       case /flac|fla/ {
+       when (any qw(flac fla)) {
                             my $flac_tag = $tag_module->new($in_file)->tags();
 
                                $tag_name{title}   = $flac_tag->{TITLE}       if $flac_tag->{TITLE};
@@ -2249,7 +2250,7 @@ sub read_tags {
                             return 0;
                        }
 
-    case /mp4|m4a|m4b/ {    print "INFILE: $in_file\n";
+    when (any qw(mp4 m4a m4b)) {    print "INFILE: $in_file\n";
                             my $mp4_tag = $tag_module->new($in_file);
 
                                $tag_name{title}   = $mp4_tag->{TITLE}    if $mp4_tag->{TITLE};
@@ -2263,7 +2264,7 @@ sub read_tags {
                             return 0;
                        }
 
-        case /mpc|mpp/ {
+        when (any qw(mpc mpp)) {
 
                             my $mpc_tag = $tag_module->new($in_file)->tags();
 
@@ -2278,7 +2279,7 @@ sub read_tags {
                             return 0;
                        }
 
-        case 'wv'      {
+        when ('wv')     {
                             my $wv_tag = $tag_module->getTags($in_file)->{'tags'};
 
                                $tag_name{title}   = $wv_tag->{TITLE}   if $wv_tag->{TITLE};
@@ -2292,7 +2293,7 @@ sub read_tags {
                             return 0;
                        }
 
-        case 'wma'     {
+        when ('wma')    {
                             my $wma_tag = Audio::WMA->new($in_file)->tags();
 
                                $tag_name{title}   = $wma_tag->{TITLE}       if $wma_tag->{TITLE};
@@ -2320,7 +2321,7 @@ sub write_tags {
 
     switch ($out_format) {
 
-           case 'mp3'  {
+           when ('mp3')  {
                             $tag_m = MP3::Tag->new("$out_file");
                             
                             # ID3v2 Tags
@@ -2353,7 +2354,7 @@ sub write_tags {
 
                         }
 
-           case 'ogg'   {
+           when ('ogg')  {
                             $tag_m = Ogg::Vorbis::Header->new("$out_file");
                             
                             # this prevents duplicate tags =)
@@ -2374,7 +2375,7 @@ sub write_tags {
 
                         }
 
-       case /fla|flac/ {
+       when (any qw(fla flac)) {
                             $tag_m = Audio::FLAC::Header->new("$out_file");
                          my $tag_i = $tag_m->tags();
 
@@ -2403,7 +2404,7 @@ sub write_tags {
 # copied over to the next file in line.
 sub clear_tag_hash {
     foreach (keys(%tag_name)) {
-            $tag_name{$_} = '';
+            $tag_name{$_} = ('');
     }
 }
 
@@ -2927,7 +2928,7 @@ structure in the specified output directory.  such as:
 
 pacpl --to ogg -r -p /home/mp3s --outdir /home/oggs
 
-in the example above, let's assume the directory structure was:
+in the example above, let('s assume the directory structure was:
 
 =over 21
 
@@ -3056,7 +3057,7 @@ pacpl --decoder I<format>
 
 B<-v, --verbose>
 
-show detailed information about the encoding process and what's actually
+show detailed information about the encoding process and what')s actually
 being done.
 
 =head1 ENCODER OPTIONS
