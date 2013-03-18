@@ -1581,50 +1581,32 @@ my $first_message   = 1;
 
 # process all files and directories
 sub proc_input {
-
     $to =~ tr/A-Z/a-z/;
-   
     perror("bad_input","") unless(exists($run{$to}));
-   
     # process all files first
     if (@file) {
-
         foreach my $i (sort(@file)) {
-       
             my ($file, $dir, $ext) = fileparse("$i", qr/\.[^.]*/);
-
             $ext    =~ s/^\.//;
             $dir    =  rel2abs($dir);
             $outdir =  $dir if not defined($out_dir) and not $preserve;
             $outdir =  $out_dir if $preserve;
-
             my $if =  $ext;
             $if    =~ tr/A-Z/a-z/;
-            
             $only =~ tr/A-Z/a-z/ if $only;
-                   
             next if $only and $if ne $only;
-              
             $encoder = $my_encoder if defined($my_encoder);
             $decoder = $my_decoder if defined($my_decoder);
-                   
             $encoder = $run{$to}{DEFAULT_ENCODER} if not $my_encoder;
             $decoder = $run{$if}{DEFAULT_DECODER} if not $my_decoder;
-                                      
             if (check_input($file,$dir,$if) == 0) {
-                   
                 pnotice("unk_encoder","$file.$ext",1), next unless(exists($run{$to}{ENCODER}{$encoder}));
                 pnotice("unk_decoder","$file.$ext",1), next unless(exists($run{$if}{DECODER}{$decoder}));
-              
                 get_visual_opts($to,$outdir) if $gui and not defined($first_run) and `which kdialog 2>/dev/null`;
-                   
                 $first_run = 1;
-                   
                 perror("multi_out","")       if (defined($out_name) and $#file gt 0 or defined($out_name) and @dir);
                 perror("no_outdir","")       if (not -e $outdir and not -d $outdir);
-
                 $outfile = "$file" if not $out_name;
-
                 if ($keep and $if eq $to) {
                     system(sprintf("cp -v %s %s",
                                    shell_quote_best_effort("$dir/$file.$ext"),
@@ -1633,182 +1615,123 @@ sub proc_input {
                 } else {
                     convert("$dir/$file","$outdir/$outfile","$ext","$file","$outfile");
                 }
-                 
             }
         }
     }
-
     # now the directories (this includes --recursive and --preserve)
     if (@dir) {
-
         my @tmp_dir = @dir;
         undef(@dir);
         $topdir = $tmp_dir[0];
-
         if (not $recursive) {
-
             undef(@file);
-        
             foreach my $d (@tmp_dir) {
-
                 opendir(DIR, "$d") or perror("opening_dir","$d: $!");
                 my @dir_files = readdir(DIR);
                 closedir(DIR);
-                
                 perror("empty_dir","$d") if $#dir_files <= 1;
-
                 foreach my $f (@dir_files) {
-
                     if (not -d $f and not -d "$d/$f") {
                         push(@file, "$d/$f");
                         undef($out_name);
                     }
                 }
             }
-       
             proc_input();
             return 0;
-
         } 
-
         elsif ($recursive) {
-
             if (not $preserve) {
-                 
                 undef(@file);
-
                 foreach my $r (@tmp_dir) {
-
                     $r = rel2abs($r);
-
                     find ( sub {
                                my $rfile = $File::Find::name;
                                push(@file, $rfile) if not -d $rfile;
                            }, $r
                          );
                 }
-                 
                 proc_input();
                 return 0;
-
             } elsif ($preserve) {
                 $topdir = rel2abs($topdir);
                 find ({wanted => \&preserve_struct, no_chdir => 1, follow => 0}, $topdir);
                 return 0;
             }
         }
-
     }
-   
     print "\n$lang{total_converted} $total_converted, $lang{failed} $total_failed\n";
 }
-
 my $out_copy = $out_dir if defined($out_dir);
-
 # preserve directory structure (--recursive --preserve)
 sub preserve_struct {
-
     undef($out_dir) if defined ($out_dir);
-
     perror("need_outdir","")        if not defined($out_copy);
     perror("no_outdir","$out_copy") if not -d $out_copy;
-
     $out_copy = rel2abs($out_copy);
-
     my $find_dir = $File::Find::name;
     my ($presdir, $odir);
-
     if (-d $find_dir and $find_dir ne $topdir) {
-
         my $out =  $find_dir;
         $out    =~ s/$topdir\///g;
-
         $presdir = "$topdir/$out";
         $odir    = "$out_copy/$out";
-
         $out_dir = "$odir";
-
         if (-d $find_dir and not -d $odir) {
             mkdir("$odir", 0755);
         }
-
         opendir(IN, "$presdir") or perror("opening_dir","$presdir: $!");
-            
         undef(@file);
-
         foreach my $i (readdir(IN)) {
-
             if (not -d $i and not -d "$presdir/$i") {
                 mkdir("$odir", 0755) if not -d $odir;
                 pnotice("creating_dir","$odir",2) if not -d $odir;
                 push(@file, "$presdir/$i");
             }
-
         } undef($presdir); undef($odir); closedir(IN);
-            
         proc_input();
-
     } elsif (-d $find_dir and $find_dir eq $topdir) {
-
         $presdir = $topdir;
         $odir    = $out_copy;
         $out_dir = $odir;
-                 
         undef(@file);
-
         opendir(IN, "$presdir") or perror("opening_dir","$presdir: $!");
-
         foreach my $i (readdir(IN)) {
-
             if (not -d $i and not -d "$presdir/$i") {
                 push(@file, "$presdir/$i");
             }
-
         } closedir(IN);
-                 
         proc_input();
     }
 }
-
 # convert input to destination format
 sub convert {
-
     my ($inf, $outf, $infmt, $iname, $oname) = @_;
-
     my $if = $infmt;
     $if =~ tr/A-Z/a-z/;
-
     clear_tag_hash() if not $rip;
-
     if (-e "$outf.$to" and not $overwrite) {
         pnotice("overwrite","$outf.$to",2);
         $total_failed++;
         return 0;
     }
-
     # catch ^C.  will have to be pressed repeatedly to exit the process.
     $SIG{INT} = sub {
         unlink("$outf.$$.wav");
         kill 9, $$; 
     };
-       
     # check to see if encoder/decoder exists.  if not, see if we have one 
     # that supports the desired input/output formats.
     check_encoder();
     check_decoder($infmt);
-                         
     my $decode_string =  $run{$if}{DECODER}{$decoder}{DSTR}->();
     $decode_string    =~ s/%i/shell_quote_best_effort("$inf.$infmt")/e;
     $decode_string    =~ s/%o/shell_quote_best_effort("$outf.$$.wav")/e;
-    
     my $nl = 0; $nl = 2 if $verbose;
-          
     pnotice("converting"," [$iname.$infmt] -> [$to] ", $nl);
     pnotice("debug","$run{$if}{DECODER}{$decoder}{NAME} $decode_string", 2) if $dryrun;
-
     # decode input file to temporary wav
     system("$run{$if}{DECODER}{$decoder}{NAME} $decode_string $silent") if not $dryrun;
-
     # remove temporary wav file and die if decode fails
     if ($? > 0) {
         unlink("$outf.$$.wav") if -e "$outf.$$.wav";
@@ -1816,29 +1739,21 @@ sub convert {
         $total_failed++;
         return 0;
     }
-       
     # normalize wav file before encoding to output format
     perror("no_app","normalize") if $normalize and not `which normalize 2>/dev/null`;
     system(sprintf("normalize $nopts %s", 
                    shell_quote_best_effort("$outf.$$.wav"))) if $normalize;
-
     # copy meta-data from input file to %tag_name 
     read_tags("$inf.$infmt", "$if") if $run{$if}{TAGS}{READ} == 1 and not $dryrun;
-
     my $encode_string =  $run{$to}{ENCODER}{$encoder}{ESTR}->();
     $encode_string    =~ s/%i/shell_quote_best_effort("$outf.$$.wav")/e; 
     $encode_string    =~ s/%o/shell_quote_best_effort("$outf.$to")/e;
-
     my $tag_opts = format_tags($to); # tag options for mp4/m4a/m4b/mpc/mpp/bonk/spx/wv
-    
     # read tag options from command line if present
     get_user_tags();
-
     pnotice("debug","$run{$to}{ENCODER}{$encoder}{NAME} $tag_opts $encode_string", 2) if $dryrun;
-
     # encode temporary WAV to desired output format.
     system("$run{$to}{ENCODER}{$encoder}{NAME} $tag_opts $encode_string $silent") if not $dryrun;
-
     # remove partially encoded output file and temporary wav if encoding fails
     if ($? > 0) {
         unlink("$outf.$to")          if -e "$outf.$to";
@@ -1847,26 +1762,20 @@ sub convert {
         $total_failed++;
         return 0;
     }
-
     # write meta-data to output file from %tag_name hash
     write_tags("$outf.$to", "$to") if $run{$to}{TAGS}{WRITE} == 1 and $tag_opts eq '' and not $dryrun;
- 
     unlink("$outf.$$.wav") if not $dryrun;
     unlink("$inf.$infmt")  if $delete and not $dryrun;
-
     pnotice("removed_tmp","$outf.$$.wav","2") if $verbose;
     pnotice("removed_src","$inf.$infmt", "2") if $delete and $verbose;
-       
     if (-e "$outf.$to") {
         pnotice("conv_comp","",1);
         $total_converted++;
     }
 }
-
 # if the default encoder does not exist, cycle through the supported
 # encoders until we find one that does.
 sub check_encoder {
-
     my $sq_encoder = shell_quote_best_effort($encoder);
     if (not `which $sq_encoder 2>/dev/null`) {
         my $first_encoder = $encoder;
@@ -1879,7 +1788,6 @@ sub check_encoder {
         return 0;
     }
 }
-
 # if the default decoder does not exist, cycle through the supported
 # decoders until we find one that does.
 sub check_decoder {
@@ -2050,7 +1958,7 @@ sub prompt_user {
                           exit(1) if not $bpsize;
                          }
 
-                    else { return 0; }
+                    default { return 0; }
     }
 
 }
@@ -2084,95 +1992,81 @@ sub get_user_tags {
 # tags therefore have to be written during encode via various 
 # command line args.
 sub format_tags {
-
     my $type = shift;
-
     given ($type) {
-        
-        when (any qw(mp4 m4a m4b)) {
-
-                            if ($run{$to}{ENCODER}{$encoder}{NAME} eq "avconv") {
-                                
-                                $tag_name{track} = 0 if not $tag_name{track};
-                                $tag_name{year}  = 0 if not $tag_name{year};
-
-                                return sprintf("-title %s -track %s -author %s -album %s -comment %s -year %s -genre %s",
-                                               shell_quote_best_effort($tag_name{title}),
-                                               shell_quote_best_effort($tag_name{track}),
-                                               shell_quote_best_effort($tag_name{artist}),
-                                               shell_quote_best_effort($tag_name{album}),
-                                               shell_quote_best_effort($tag_name{comment}),
-                                               shell_quote_best_effort($tag_name{year}),
-                                               shell_quote_best_effort($tag_name{genre}));
-                                
-                            } else {
-                                
-                                return sprintf("--title %s --track %s --artist %s --album %s --comment %s --year %s --genre %s",
-                                               shell_quote_best_effort($tag_name{title}),
-                                               shell_quote_best_effort($tag_name{track}),
-                                               shell_quote_best_effort($tag_name{artist}),
-                                               shell_quote_best_effort($tag_name{album}),
-                                               shell_quote_best_effort($tag_name{comment}),
-                                               shell_quote_best_effort($tag_name{year}),
-                                               shell_quote_best_effort($tag_name{genre}));
-                                
-                            }
-                           } 
-                
-        when (any qw(mpc mpp)) {
-                        return sprintf("--tag %s --tag %s --tag %s --tag %s --tag %s --tag %s --tag %s",
-                                       shell_quote_best_effort("Title=$tag_name{title}"),
-                                       shell_quote_best_effort("Track=$tag_name{track}"),
-                                       shell_quote_best_effort("Artist=$tag_name{artist}"),
-                                       shell_quote_best_effort("Album=$tag_name{album}"),
-                                       shell_quote_best_effort("Comment=$tag_name{comment}"),
-                                       shell_quote_best_effort("Year=$tag_name{year}"),
-                                       shell_quote_best_effort("Genre=$tag_name{genre}"));
-                       }
+        when (any(qw(mp4 m4a m4b))) {
+            if ($run{$to}{ENCODER}{$encoder}{NAME} eq "avconv") {
+                $tag_name{track} = 0 if not $tag_name{track};
+                $tag_name{year}  = 0 if not $tag_name{year};
+                return sprintf("-title %s -track %s -author %s -album %s -comment %s -year %s -genre %s",
+                               shell_quote_best_effort($tag_name{title}),
+                               shell_quote_best_effort($tag_name{track}),
+                               shell_quote_best_effort($tag_name{artist}),
+                               shell_quote_best_effort($tag_name{album}),
+                               shell_quote_best_effort($tag_name{comment}),
+                               shell_quote_best_effort($tag_name{year}),
+                               shell_quote_best_effort($tag_name{genre}));
+            } else {
+                return sprintf("--title %s --track %s --artist %s --album %s --comment %s --year %s --genre %s",
+                               shell_quote_best_effort($tag_name{title}),
+                               shell_quote_best_effort($tag_name{track}),
+                               shell_quote_best_effort($tag_name{artist}),
+                               shell_quote_best_effort($tag_name{album}),
+                               shell_quote_best_effort($tag_name{comment}),
+                               shell_quote_best_effort($tag_name{year}),
+                               shell_quote_best_effort($tag_name{genre}));
+            }
+        }
+        when (any(qw(mpc mpp))) {
+            return sprintf("--tag %s --tag %s --tag %s --tag %s --tag %s --tag %s --tag %s",
+                           shell_quote_best_effort("Title=$tag_name{title}"),
+                           shell_quote_best_effort("Track=$tag_name{track}"),
+                           shell_quote_best_effort("Artist=$tag_name{artist}"),
+                           shell_quote_best_effort("Album=$tag_name{album}"),
+                           shell_quote_best_effort("Comment=$tag_name{comment}"),
+                           shell_quote_best_effort("Year=$tag_name{year}"),
+                           shell_quote_best_effort("Genre=$tag_name{genre}"));
+        }
         when ('wv')      {
-                        return sprintf("-w %s -w %s -w %s -w %s -w %s -w %s -w %s",
-                                       shell_quote_best_effort("Title=$tag_name{title}"),
-                                       shell_quote_best_effort("Track=$tag_name{track}"),
-                                       shell_quote_best_effort("Artist=$tag_name{artist}"),
-                                       shell_quote_best_effort("Album=$tag_name{album}"),
-                                       shell_quote_best_effort("Comment=$tag_name{comment}"),
-                                       shell_quote_best_effort("Year=$tag_name{year}"),
-                                       shell_quote_best_effort("Genre=$tag_name{genre}"));
-                       }
+            return sprintf("-w %s -w %s -w %s -w %s -w %s -w %s -w %s",
+                           shell_quote_best_effort("Title=$tag_name{title}"),
+                           shell_quote_best_effort("Track=$tag_name{track}"),
+                           shell_quote_best_effort("Artist=$tag_name{artist}"),
+                           shell_quote_best_effort("Album=$tag_name{album}"),
+                           shell_quote_best_effort("Comment=$tag_name{comment}"),
+                           shell_quote_best_effort("Year=$tag_name{year}"),
+                           shell_quote_best_effort("Genre=$tag_name{genre}"));
+        }
         when ('bonk')    {
-                        return sprintf("-t %s -a %s -c %s",
-                                       shell_quote_best_effort($tag_name{title}),
-                                       shell_quote_best_effort($tag_name{artist}),
-                                       shell_quote_best_effort($tag_name{comment}));
-                       }
+            return sprintf("-t %s -a %s -c %s",
+                           shell_quote_best_effort($tag_name{title}),
+                           shell_quote_best_effort($tag_name{artist}),
+                           shell_quote_best_effort($tag_name{comment}));
+        }
         when ('spx')   {
-                        return sprintf("--author %s --title %s --comment %s --comment %s --comment %s --comment %s --comment %s",
-                                       shell_quote_best_effort($tag_name{artist}),
-                                       shell_quote_best_effort($tag_name{title}),
-                                       shell_quote_best_effort("date=$tag_name{year}"),
-                                       shell_quote_best_effort("track=$tag_name{track}"),
-                                       shell_quote_best_effort("album=$tag_name{album}"),
-                                       shell_quote_best_effort("genre=$tag_name{genre}"),
-                                       shell_quote_best_effort("comment=$tag_name{comment}"));
-                       }
-        else           { return ''; }
+            return sprintf("--author %s --title %s --comment %s --comment %s --comment %s --comment %s --comment %s",
+                           shell_quote_best_effort($tag_name{artist}),
+                           shell_quote_best_effort($tag_name{title}),
+                           shell_quote_best_effort("date=$tag_name{year}"),
+                           shell_quote_best_effort("track=$tag_name{track}"),
+                           shell_quote_best_effort("album=$tag_name{album}"),
+                           shell_quote_best_effort("genre=$tag_name{genre}"),
+                           shell_quote_best_effort("comment=$tag_name{comment}"));
+        }
+        default { return '';
+              }
     }
 }
-
 # meta-data is read based on input file extension.
 # all tags which are present will be copied to 
 # the %tag_name hash.
 sub read_tags {
-
     my ($in_file, $in_format) = @_;
     my $tag_module = $run{$in_format}{TAGS}{MODULE};
-
-    switch ($in_format) {
-
+    given ($in_format) {
            when ('mp3')  {
                         my $mp3tag = $tag_module->new($in_file);
                         my @tags   = $mp3tag->autoinfo();
-
                         $tag_name{title}   = "$tags[0]" if $tags[0];
                         $tag_name{track}   = "$tags[1]" if $tags[1];
                         $tag_name{artist}  = "$tags[2]" if $tags[2];
@@ -2180,17 +2074,12 @@ sub read_tags {
                         $tag_name{comment} = "$tags[4]" if $tags[4];
                         $tag_name{year}    = "$tags[5]" if $tags[5];
                         $tag_name{genre}   = "$tags[6]" if $tags[6];
-                               
                         return 0;
                        }
-
            when ('ogg')  {
                             my $ogg_tag = $tag_module->new($in_file);
-
                             my ($tit, $tra, $art, $alb, $com, $yea, $gen);
-
                             foreach my $i ($ogg_tag->comment_tags) {
-
                                  if ($i =~   /^title/i) { $tit = \$ogg_tag->comment($i); }
                                  if ($i =~   /^track/i) { $tra = \$ogg_tag->comment($i); }
                                  if ($i =~  /^artist/i) { $art = \$ogg_tag->comment($i); }
@@ -2198,7 +2087,6 @@ sub read_tags {
                                  if ($i =~ /^comment/i) { $com = \$ogg_tag->comment($i); }
                                  if ($i =~    /^date/i) { $yea = \$ogg_tag->comment($i); }
                                  if ($i =~   /^genre/i) { $gen = \$ogg_tag->comment($i); }
-
                                  $tag_name{title}   = ${$tit} if defined(${$tit});
                                  $tag_name{track}   = ${$tra} if defined(${$tra});
                                  $tag_name{artist}  = ${$art} if defined(${$art});
@@ -2207,39 +2095,27 @@ sub read_tags {
                                  $tag_name{year}    = ${$yea} if defined(${$yea});
                                  $tag_name{genre}   = ${$gen} if defined(${$gen});
                             }
-                            
                             return 0;
                        }
-                       
         when ('spx')     {
                             my $pid  = open(SPX, sprintf("speexdec %s tmp1-$$.wav 2>&1 |",
                                                          shell_quote_best_effort($in_file))) or perror("opening_file","$in_file");
                             my @data = <SPX>;
                                @data = grep(!/^$|^#/, @data);
-                            
                             close(SPX);
-                               
                             foreach (@data) {
-
                                 next unless /=/; 
-                               
                                 chomp;
-                               
                                 my ($k, $v) = split /=/;
                                     $k =~ tr/A-Z/a-z/;
                                     $tag_name{$k} = $v if exists($tag_name{$k});
                                     $tag_name{artist} = $v if $k =~ /^author/i;
-                               
                              }
-                            
                              unlink("tmp-$$.wav");
-                             
                              return 0;
                        }
-
-       when (any qw(flac fla)) {
+       when (any( qw(flac fla))) {
                             my $flac_tag = $tag_module->new($in_file)->tags();
-
                                $tag_name{title}   = $flac_tag->{TITLE}       if $flac_tag->{TITLE};
                                $tag_name{track}   = $flac_tag->{TRACKNUMBER} if $flac_tag->{TRACKNUMBER};
                                $tag_name{artist}  = $flac_tag->{ARTIST}      if $flac_tag->{ARTIST};
@@ -2247,25 +2123,22 @@ sub read_tags {
                                $tag_name{comment} = $flac_tag->{DESCRIPTION} if $flac_tag->{DESCRIPTION};
                                $tag_name{year}    = $flac_tag->{DATE}        if $flac_tag->{DATE};
                                $tag_name{genre}   = $flac_tag->{GENRE}       if $flac_tag->{GENRE};
-
                             return 0;
-                       }
-
-    when (any qw(mp4 m4a m4b)) {    print "INFILE: $in_file\n";
-                            my $mp4_tag = $tag_module->new($in_file);
-
-                               $tag_name{title}   = $mp4_tag->{TITLE}    if $mp4_tag->{TITLE};
-                               $tag_name{track}   = $mp4_tag->{TRACKNUM} if $mp4_tag->{TRACKNUM};
-                               $tag_name{artist}  = $mp4_tag->{ARTIST}   if $mp4_tag->{ARTIST};
-                               $tag_name{album}   = $mp4_tag->{ALBUM}    if $mp4_tag->{ALBUM};
-                               $tag_name{comment} = $mp4_tag->{COMMENT}  if $mp4_tag->{COMMENT};
+                        }
+    when (any(qw(mp4 m4a m4b))) {
+        print "INFILE: $in_file\n";
+        my $mp4_tag = $tag_module->new($in_file);
+        $tag_name{title}   = $mp4_tag->{TITLE}    if $mp4_tag->{TITLE};
+        $tag_name{track}   = $mp4_tag->{TRACKNUM} if $mp4_tag->{TRACKNUM};
+        $tag_name{artist}  = $mp4_tag->{ARTIST}   if $mp4_tag->{ARTIST};
+        $tag_name{album}   = $mp4_tag->{ALBUM}    if $mp4_tag->{ALBUM};
+        $tag_name{comment} = $mp4_tag->{COMMENT}  if $mp4_tag->{COMMENT};
                                $tag_name{year}    = $mp4_tag->{YEAR}     if $mp4_tag->{YEAR};
-                               $tag_name{genre}   = $mp4_tag->{GENRE}    if $mp4_tag->{GENRE};
+        $tag_name{genre}   = $mp4_tag->{GENRE}    if $mp4_tag->{GENRE};
+        return 0;
+    }
 
-                            return 0;
-                       }
-
-        when (any qw(mpc mpp)) {
+        when (any(qw(mpc mpp))) {
 
                             my $mpc_tag = $tag_module->new($in_file)->tags();
 
@@ -2308,7 +2181,7 @@ sub read_tags {
                             return 0;
                        }
 
-                  else {
+                  default {
                       return 1; 
                   }
     }
@@ -2320,7 +2193,7 @@ sub write_tags {
     my ($out_file, $out_format) = @_;
     my  $tag_m;
 
-    switch ($out_format) {
+    given ($out_format) {
 
            when ('mp3')  {
                             $tag_m = MP3::Tag->new("$out_file");
@@ -2376,28 +2249,24 @@ sub write_tags {
 
                         }
 
-       when (any qw(fla flac)) {
-                            $tag_m = Audio::FLAC::Header->new("$out_file");
-                         my $tag_i = $tag_m->tags();
-
-                            $tag_i->{TITLE}       = "$tag_name{title}"   if $tag_name{title};
-                            $tag_i->{TRACKNUMBER} = "$tag_name{track}"   if $tag_name{track};
-                            $tag_i->{ARTIST}      = "$tag_name{artist}"  if $tag_name{artist};
-                            $tag_i->{ALBUM}       = "$tag_name{album}"   if $tag_name{album};
-                            $tag_i->{DESCRIPTION} = "$tag_name{comment}" if $tag_name{comment};
-                            $tag_i->{DATE}        = "$tag_name{year}"    if $tag_name{year};
-                            $tag_i->{GENRE}       = "$tag_name{genre}"   if $tag_name{genre};
-
-                            $tag_m->write();
-                            
-                          return 0;
-                       }
-
-        else {
-            perror("no_write_tag","$out_file");
-        }
-    }
-
+           when (any(qw(fla flac))) {
+               $tag_m = Audio::FLAC::Header->new("$out_file");
+               my $tag_i = $tag_m->tags();
+               $tag_i->{TITLE}       = "$tag_name{title}"   if $tag_name{title};
+               $tag_i->{TRACKNUMBER} = "$tag_name{track}"   if $tag_name{track};
+               $tag_i->{ARTIST}      = "$tag_name{artist}"  if $tag_name{artist};
+               $tag_i->{ALBUM}       = "$tag_name{album}"   if $tag_name{album};
+               $tag_i->{DESCRIPTION} = "$tag_name{comment}" if $tag_name{comment};
+               $tag_i->{DATE}        = "$tag_name{year}"    if $tag_name{year};
+               $tag_i->{GENRE}       = "$tag_name{genre}"   if $tag_name{genre};
+               
+               $tag_m->write();
+               return 0;
+           } default {
+               perror("no_write_tag","$out_file");
+           }
+       }
+    
 }
 
 # this is necessary when converting multiple files.
