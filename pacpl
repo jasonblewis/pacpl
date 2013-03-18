@@ -19,13 +19,15 @@
 
 use strict;
 use warnings;
-#use Switch;
 use feature qw(switch);
 use Getopt::Long;
 use File::Basename;
+use File::Basename qw( dirname );
 use File::Find;
+use File::Spec;
 use File::Spec::Functions qw(rel2abs);
 use Smart::Match;
+use Cwd            qw( abs_path );
 
 use String::ShellQuote qw();
 # custom wrappers around String::ShellQoute's functions, which deal
@@ -148,7 +150,16 @@ my %config = (
 
 # location of configuration file
 my $conf_path = "/etc/pacpl";
-my $po_dir    = "/usr/share/pacpl/locale";
+my $po_dir;
+
+
+# check for existance of default po directory, if not there, try local directory
+if ( -d "/usr/share/pacpl/locale" ) {
+    $po_dir = "/usr/share/pacpl/locale" ;
+} else {
+    $po_dir = File::Spec->catfile(dirname(abs_path($0)) , "po");
+}
+
 my $mod_dir   = "$conf_path/modules";
 
 my $conf_file;
